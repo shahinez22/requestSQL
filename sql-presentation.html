@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تقرير SQL — View · Trigger · Stored Procedure</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent-view: #00d4aa;
+    --accent-trigger: #f97316;
+    --accent-proc: #a78bfa;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --code-bg: #0d1117;
+    --gold: #f59e0b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'IBM Plex Sans Arabic', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── GRID BACKGROUND ─────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 60px 24px 80px; }
+
+  /* ─── HEADER ──────────────────────────────────────── */
+  header {
+    text-align: center;
+    margin-bottom: 64px;
+    animation: fadeDown .7s ease both;
+  }
+
+  .badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #00d4aa22, #a78bfa22);
+    border: 1px solid #00d4aa44;
+    color: var(--accent-view);
+    font-family: 'Fira Code', monospace;
+    font-size: .75rem;
+    letter-spacing: .12em;
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 700;
+    line-height: 1.2;
+    background: linear-gradient(135deg, #e2e8f0 0%, #00d4aa 50%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 1rem;
+    font-weight: 300;
+  }
+
+  .divider {
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-view), var(--accent-proc));
+    margin: 24px auto 0;
+    border-radius: 2px;
+  }
+
+  /* ─── INTRO CARD ──────────────────────────────────── */
+  .intro-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 56px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    animation: fadeUp .7s .1s ease both;
+  }
+
+  .intro-item { text-align: center; }
+  .intro-item .icon { font-size: 2rem; margin-bottom: 8px; }
+  .intro-item .label {
+    font-family: 'Fira Code', monospace;
+    font-size: .8rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .intro-item .val { font-weight: 600; font-size: .95rem; }
+  .intro-item:nth-child(1) .val { color: var(--accent-view); }
+  .intro-item:nth-child(2) .val { color: var(--accent-trigger); }
+  .intro-item:nth-child(3) .val { color: var(--accent-proc); }
+
+  /* ─── SECTION CARDS ───────────────────────────────── */
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    margin-bottom: 40px;
+    overflow: hidden;
+    animation: fadeUp .6s ease both;
+  }
+
+  .section-card:nth-child(1) { animation-delay: .15s; }
+  .section-card:nth-child(2) { animation-delay: .25s; }
+  .section-card:nth-child(3) { animation-delay: .35s; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: .06;
+  }
+
+  .view-header  { border-right: 4px solid var(--accent-view); }
+  .trigger-header { border-right: 4px solid var(--accent-trigger); }
+  .proc-header  { border-right: 4px solid var(--accent-proc); }
+
+  .view-header::after  { background: var(--accent-view); }
+  .trigger-header::after { background: var(--accent-trigger); }
+  .proc-header::after  { background: var(--accent-proc); }
+
+  .num {
+    font-family: 'Fira Code', monospace;
+    font-size: .75rem;
+    font-weight: 600;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .view-header  .num { background: #00d4aa22; color: var(--accent-view); border: 1px solid #00d4aa44; }
+  .trigger-header .num { background: #f9731622; color: var(--accent-trigger); border: 1px solid #f9731644; }
+  .proc-header  .num { background: #a78bfa22; color: var(--accent-proc); border: 1px solid #a78bfa44; }
+
+  .card-title { flex: 1; }
+  .card-title h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 2px; }
+  .card-title .en {
+    font-family: 'Fira Code', monospace;
+    font-size: .75rem;
+    color: var(--text-muted);
+    letter-spacing: .08em;
+  }
+
+  .card-body { padding: 28px; }
+
+  /* ─── DEFINITION ──────────────────────────────────── */
+  .definition {
+    font-size: 1rem;
+    line-height: 1.8;
+    color: #cbd5e1;
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: var(--surface2);
+    border-radius: 12px;
+    border-right: 3px solid;
+  }
+  .view-card  .definition { border-color: var(--accent-view); }
+  .trigger-card .definition { border-color: var(--accent-trigger); }
+  .proc-card  .definition { border-color: var(--accent-proc); }
+
+  /* ─── FEATURES GRID ───────────────────────────────── */
+  .features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .feature {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    transition: border-color .2s, transform .2s;
+  }
+
+  .feature:hover { transform: translateY(-2px); }
+  .view-card  .feature:hover { border-color: #00d4aa55; }
+  .trigger-card .feature:hover { border-color: #f9731655; }
+  .proc-card  .feature:hover { border-color: #a78bfa55; }
+
+  .feature-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .view-card  .feature-dot { background: var(--accent-view); }
+  .trigger-card .feature-dot { background: var(--accent-trigger); }
+  .proc-card  .feature-dot { background: var(--accent-proc); }
+
+  .feature-text { font-size: .88rem; line-height: 1.6; color: #94a3b8; }
+  .feature-text strong { color: var(--text); font-weight: 600; }
+
+  /* ─── CODE BLOCK ──────────────────────────────────── */
+  .code-label {
+    font-family: 'Fira Code', monospace;
+    font-size: .7rem;
+    color: var(--text-muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-right: 4px;
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 20px;
+    overflow-x: auto;
+    font-family: 'Fira Code', monospace;
+    font-size: .82rem;
+    line-height: 1.7;
+    direction: ltr;
+    text-align: left;
+    position: relative;
+  }
+
+  pre::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 3px; height: 100%;
+    border-radius: 0 12px 12px 0;
+  }
+  .view-card  pre::before { background: var(--accent-view); }
+  .trigger-card pre::before { background: var(--accent-trigger); }
+  .proc-card  pre::before { background: var(--accent-proc); }
+
+  .kw  { color: #79c0ff; }
+  .fn  { color: #d2a8ff; }
+  .str { color: #a5d6ff; }
+  .cmt { color: #484f58; font-style: italic; }
+  .num-c { color: #f8c555; }
+  .tbl { color: #ffa657; }
+  .op  { color: #ff7b72; }
+
+  /* ─── USE CASES ───────────────────────────────────── */
+  .use-cases {
+    margin-top: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .use-tag {
+    font-size: .78rem;
+    padding: 5px 12px;
+    border-radius: 100px;
+    border: 1px solid;
+    font-weight: 500;
+  }
+
+  .view-card  .use-tag { background: #00d4aa11; color: var(--accent-view); border-color: #00d4aa33; }
+  .trigger-card .use-tag { background: #f9731611; color: var(--accent-trigger); border-color: #f9731633; }
+  .proc-card  .use-tag { background: #a78bfa11; color: var(--accent-proc); border-color: #a78bfa33; }
+
+  /* ─── COMPARISON TABLE ────────────────────────────── */
+  .comparison {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 40px;
+    animation: fadeUp .6s .45s ease both;
+  }
+
+  .comparison-header {
+    padding: 22px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .comparison-header h3 { font-size: 1.1rem; font-weight: 600; }
+  .comp-icon { font-size: 1.3rem; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+  }
+
+  thead th {
+    padding: 14px 20px;
+    text-align: right;
+    font-family: 'Fira Code', monospace;
+    font-size: .75rem;
+    font-weight: 500;
+    letter-spacing: .06em;
+    background: var(--surface2);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  thead th:first-child { width: 26%; }
+
+  tbody td {
+    padding: 14px 20px;
+    border-bottom: 1px solid #111827;
+    vertical-align: top;
+    line-height: 1.6;
+    color: #94a3b8;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #ffffff04; }
+
+  .prop-name {
+    font-weight: 600;
+    color: var(--text);
+    font-size: .85rem;
+  }
+
+  .tag-v, .tag-t, .tag-p {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: .78rem;
+    font-weight: 600;
+  }
+
+  .tag-v { background: #00d4aa22; color: var(--accent-view); }
+  .tag-t { background: #f9731622; color: var(--accent-trigger); }
+  .tag-p { background: #a78bfa22; color: var(--accent-proc); }
+
+  /* ─── FOOTER ──────────────────────────────────────── */
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: .8rem;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    animation: fadeUp .6s .55s ease both;
+  }
+
+  footer span { color: var(--accent-view); font-family: 'Fira Code', monospace; }
+
+  /* ─── ANIMATIONS ──────────────────────────────────── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 600px) {
+    .intro-card { grid-template-columns: 1fr; }
+    .features { grid-template-columns: 1fr; }
+    table { font-size: .78rem; }
+    thead th, tbody td { padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ─── HEADER ─────────────────────────────────────── -->
+  <header>
+    <div class="badge">SQL Advanced Objects — تقرير</div>
+    <h1>أنواع الطلبات المتقدمة في SQL</h1>
+    <p class="subtitle">View &nbsp;·&nbsp; Trigger &nbsp;·&nbsp; Stored Procedure</p>
+    <div class="divider"></div>
+  </header>
+
+  <!-- ─── INTRO ──────────────────────────────────────── -->
+  <div class="intro-card">
+    <div class="intro-item">
+      <div class="icon">👁️</div>
+      <div class="label">01 — VIEW</div>
+      <div class="val">العرض (View)</div>
+    </div>
+    <div class="intro-item">
+      <div class="icon">⚡</div>
+      <div class="label">02 — TRIGGER</div>
+      <div class="val">المشغّل (Trigger)</div>
+    </div>
+    <div class="intro-item">
+      <div class="icon">⚙️</div>
+      <div class="label">03 — STORED PROC</div>
+      <div class="val">الإجراء المخزّن</div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 1 — VIEW
+  ─────────────────────────────────────────────────── -->
+  <div class="section-card view-card">
+    <div class="card-header view-header">
+      <div class="num">01</div>
+      <div class="card-title">
+        <h2>العرض — View</h2>
+        <div class="en">Virtual Table / Logical Query Layer</div>
+      </div>
+      <span style="font-size:1.8rem">👁️</span>
+    </div>
+    <div class="card-body">
+
+      <p class="definition">
+        الـ <strong>View</strong> هو جدول افتراضي يُعرَّف بناءً على استعلام <code>SELECT</code>، لا يُخزَّن فيه بيانات فعلية بل يعرض نتائج الاستعلام في كل مرة يُستدعى فيها. يُستخدم لتبسيط الاستعلامات المعقدة وتوفير طبقة أمان على البيانات.
+      </p>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>تبسيط الاستعلامات</strong> — تحويل استعلامات معقدة إلى اسم بسيط قابل لإعادة الاستخدام</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>الأمان</strong> — إخفاء الأعمدة الحساسة وتقييد وصول المستخدمين</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>الاتساق</strong> — ضمان استخدام نفس المنطق في جميع التطبيقات</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>جدول افتراضي</strong> — لا يحتل مساحة تخزين حقيقية للبيانات</div>
+        </div>
+      </div>
+
+      <div class="code-label">مثال عملي — SQL</div>
+      <pre><span class="cmt">-- إنشاء View لعرض بيانات الموظفين النشطين فقط</span>
+<span class="kw">CREATE VIEW</span> <span class="tbl">vw_ActiveEmployees</span> <span class="kw">AS</span>
+  <span class="kw">SELECT</span>
+    e.<span class="fn">emp_id</span>,
+    e.<span class="fn">full_name</span>,
+    d.<span class="fn">dept_name</span>,
+    e.<span class="fn">hire_date</span>
+  <span class="kw">FROM</span> <span class="tbl">Employees</span> e
+  <span class="kw">JOIN</span> <span class="tbl">Departments</span> d <span class="kw">ON</span> e.<span class="fn">dept_id</span> <span class="op">=</span> d.<span class="fn">dept_id</span>
+  <span class="kw">WHERE</span> e.<span class="fn">status</span> <span class="op">=</span> <span class="str">'ACTIVE'</span>;
+
+<span class="cmt">-- استخدام الـ View كجدول عادي</span>
+<span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> <span class="tbl">vw_ActiveEmployees</span>
+<span class="kw">WHERE</span> <span class="fn">dept_name</span> <span class="op">=</span> <span class="str">'IT'</span>;
+
+<span class="cmt">-- حذف الـ View</span>
+<span class="kw">DROP VIEW</span> <span class="tbl">vw_ActiveEmployees</span>;</pre>
+
+      <div class="use-cases">
+        <span class="use-tag">تقارير الإدارة</span>
+        <span class="use-tag">تقييد الصلاحيات</span>
+        <span class="use-tag">إخفاء التعقيد</span>
+        <span class="use-tag">واجهات API</span>
+        <span class="use-tag">لوحات البيانات</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 2 — TRIGGER
+  ─────────────────────────────────────────────────── -->
+  <div class="section-card trigger-card">
+    <div class="card-header trigger-header">
+      <div class="num">02</div>
+      <div class="card-title">
+        <h2>المشغّل — Trigger</h2>
+        <div class="en">Automatic Event-Driven Procedure</div>
+      </div>
+      <span style="font-size:1.8rem">⚡</span>
+    </div>
+    <div class="card-body">
+
+      <p class="definition">
+        الـ <strong>Trigger</strong> هو إجراء يُنفَّذ تلقائيًا من قِبل قاعدة البيانات عند وقوع حدث معين (<code>INSERT</code> أو <code>UPDATE</code> أو <code>DELETE</code>) على جدول ما. لا يُستدعى يدويًا بل يُطلَق بشكل تلقائي.
+      </p>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>BEFORE / AFTER</strong> — يُنفَّذ قبل الحدث أو بعده حسب الحاجة</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>سجل التغييرات</strong> — تتبع تاريخ التعديلات أوتوماتيكيًا (Audit Log)</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>القيود المعقدة</strong> — تطبيق قواعد العمل التي لا تدعمها القيود العادية</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>مزامنة الجداول</strong> — تحديث جداول أخرى تلقائيًا عند تغيير البيانات</div>
+        </div>
+      </div>
+
+      <div class="code-label">مثال عملي — SQL</div>
+      <pre><span class="cmt">-- Trigger لتسجيل كل تعديل على رواتب الموظفين</span>
+<span class="kw">CREATE TRIGGER</span> <span class="fn">trg_SalaryAudit</span>
+<span class="kw">AFTER UPDATE ON</span> <span class="tbl">Employees</span>
+<span class="kw">FOR EACH ROW</span>
+<span class="kw">BEGIN</span>
+  <span class="kw">IF</span> OLD.<span class="fn">salary</span> <span class="op">!=</span> NEW.<span class="fn">salary</span> <span class="kw">THEN</span>
+    <span class="kw">INSERT INTO</span> <span class="tbl">SalaryLog</span>
+      (<span class="fn">emp_id</span>, <span class="fn">old_salary</span>, <span class="fn">new_salary</span>, <span class="fn">change_date</span>)
+    <span class="kw">VALUES</span>
+      (NEW.<span class="fn">emp_id</span>, OLD.<span class="fn">salary</span>, NEW.<span class="fn">salary</span>, <span class="fn">NOW</span>());
+  <span class="kw">END IF</span>;
+<span class="kw">END</span>;
+
+<span class="cmt">-- عند تنفيذ هذا الأمر يُطلَق الـ Trigger تلقائيًا</span>
+<span class="kw">UPDATE</span> <span class="tbl">Employees</span>
+  <span class="kw">SET</span> <span class="fn">salary</span> <span class="op">=</span> <span class="num-c">75000</span>
+  <span class="kw">WHERE</span> <span class="fn">emp_id</span> <span class="op">=</span> <span class="num-c">101</span>;</pre>
+
+      <div class="use-cases">
+        <span class="use-tag">Audit Log</span>
+        <span class="use-tag">التحقق من البيانات</span>
+        <span class="use-tag">الحماية من الحذف</span>
+        <span class="use-tag">مزامنة الجداول</span>
+        <span class="use-tag">قواعد العمل التلقائية</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 3 — STORED PROCEDURE
+  ─────────────────────────────────────────────────── -->
+  <div class="section-card proc-card">
+    <div class="card-header proc-header">
+      <div class="num">03</div>
+      <div class="card-title">
+        <h2>الإجراء المخزّن — Stored Procedure</h2>
+        <div class="en">Named Reusable SQL Program</div>
+      </div>
+      <span style="font-size:1.8rem">⚙️</span>
+    </div>
+    <div class="card-body">
+
+      <p class="definition">
+        الـ <strong>Stored Procedure</strong> هو مجموعة من تعليمات SQL مُخزَّنة في قاعدة البيانات بشكل دائم تحت اسم محدد، ويمكن استدعاؤها في أي وقت باستخدام <code>CALL</code> أو <code>EXEC</code>. تدعم المعاملات (Parameters) والمتغيرات والشروط.
+      </p>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>إعادة الاستخدام</strong> — كتابة المنطق مرة واحدة واستدعاؤه من أي مكان</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>الأداء</strong> — تُجمَّع مسبقًا (Pre-compiled) مما يُسرّع التنفيذ</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>المعاملات IN/OUT</strong> — قبول بيانات مدخلة وإرجاع نتائج</div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div class="feature-text"><strong>معالجة الأخطاء</strong> — دعم <code>DECLARE ... HANDLER</code> للتعامل مع الاستثناءات</div>
+        </div>
+      </div>
+
+      <div class="code-label">مثال عملي — SQL</div>
+      <pre><span class="cmt">-- إجراء مخزّن لتسجيل موظف جديد مع التحقق</span>
+<span class="kw">CREATE PROCEDURE</span> <span class="fn">sp_AddEmployee</span>(
+  <span class="kw">IN</span>  p_name     <span class="tbl">VARCHAR</span>(<span class="num-c">100</span>),
+  <span class="kw">IN</span>  p_dept_id  <span class="tbl">INT</span>,
+  <span class="kw">IN</span>  p_salary   <span class="tbl">DECIMAL</span>(<span class="num-c">10</span>,<span class="num-c">2</span>),
+  <span class="kw">OUT</span> p_new_id   <span class="tbl">INT</span>
+)
+<span class="kw">BEGIN</span>
+  <span class="cmt">-- التحقق من وجود القسم</span>
+  <span class="kw">IF NOT EXISTS</span> (
+    <span class="kw">SELECT</span> <span class="num-c">1</span> <span class="kw">FROM</span> <span class="tbl">Departments</span>
+    <span class="kw">WHERE</span> <span class="fn">dept_id</span> <span class="op">=</span> p_dept_id
+  ) <span class="kw">THEN</span>
+    <span class="fn">SIGNAL SQLSTATE</span> <span class="str">'45000'</span>
+      <span class="kw">SET</span> <span class="fn">MESSAGE_TEXT</span> <span class="op">=</span> <span class="str">'القسم غير موجود'</span>;
+  <span class="kw">END IF</span>;
+
+  <span class="cmt">-- إدخال الموظف الجديد</span>
+  <span class="kw">INSERT INTO</span> <span class="tbl">Employees</span>
+    (<span class="fn">full_name</span>, <span class="fn">dept_id</span>, <span class="fn">salary</span>, <span class="fn">status</span>)
+  <span class="kw">VALUES</span>
+    (p_name, p_dept_id, p_salary, <span class="str">'ACTIVE'</span>);
+
+  <span class="kw">SET</span> p_new_id <span class="op">=</span> <span class="fn">LAST_INSERT_ID</span>();
+<span class="kw">END</span>;
+
+<span class="cmt">-- استدعاء الإجراء</span>
+<span class="kw">CALL</span> <span class="fn">sp_AddEmployee</span>(<span class="str">'أحمد بن علي'</span>, <span class="num-c">3</span>, <span class="num-c">55000</span>, <span class="op">@</span>new_id);
+<span class="kw">SELECT</span> <span class="op">@</span>new_id <span class="kw">AS</span> <span class="str">'رقم الموظف الجديد'</span>;</pre>
+
+      <div class="use-cases">
+        <span class="use-tag">عمليات CRUD المعقدة</span>
+        <span class="use-tag">التقارير الدورية</span>
+        <span class="use-tag">منطق الأعمال</span>
+        <span class="use-tag">معالجة الدُفعات</span>
+        <span class="use-tag">إدارة المعاملات</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── COMPARISON TABLE ────────────────────────────── -->
+  <div class="comparison">
+    <div class="comparison-header">
+      <span class="comp-icon">📊</span>
+      <h3>جدول المقارنة الشامل</h3>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>الخاصية</th>
+          <th><span class="tag-v">VIEW</span></th>
+          <th><span class="tag-t">TRIGGER</span></th>
+          <th><span class="tag-p">STORED PROC</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="prop-name">طريقة التنفيذ</td>
+          <td>استعلام SELECT عليه</td>
+          <td>تلقائي عند حدث DML</td>
+          <td>يدوي عبر CALL / EXEC</td>
+        </tr>
+        <tr>
+          <td class="prop-name">المعاملات (Parameters)</td>
+          <td>لا يدعم</td>
+          <td>لا يدعم</td>
+          <td>يدعم IN / OUT / INOUT</td>
+        </tr>
+        <tr>
+          <td class="prop-name">تخزين البيانات</td>
+          <td>لا يُخزِّن بيانات</td>
+          <td>لا يُخزِّن بيانات</td>
+          <td>يمكن إرجاع نتائج</td>
+        </tr>
+        <tr>
+          <td class="prop-name">الاستخدام الرئيسي</td>
+          <td>عرض وتصفية البيانات</td>
+          <td>الاستجابة للأحداث</td>
+          <td>تنفيذ منطق الأعمال</td>
+        </tr>
+        <tr>
+          <td class="prop-name">يمكن التعديل؟</td>
+          <td>في بعض الحالات</td>
+          <td>لا (عادةً للقراءة)</td>
+          <td>نعم، كاملًا</td>
+        </tr>
+        <tr>
+          <td class="prop-name">الأمان</td>
+          <td>إخفاء أعمدة حساسة</td>
+          <td>تدقيق تلقائي</td>
+          <td>تحكم كامل بالصلاحيات</td>
+        </tr>
+        <tr>
+          <td class="prop-name">الأداء</td>
+          <td>متوسط</td>
+          <td>قد يُبطّئ العمليات</td>
+          <td>ممتاز (pre-compiled)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── FOOTER ──────────────────────────────────────── -->
+  <footer>
+    تقرير SQL المتقدم &nbsp;|&nbsp;
+    <span>VIEW</span> &nbsp;·&nbsp;
+    <span>TRIGGER</span> &nbsp;·&nbsp;
+    <span>STORED PROCEDURE</span>
+  </footer>
+
+</div>
+</body>
+</html>
